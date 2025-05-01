@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudFile - Persistent File Storage</title>
+    <title>CloudSync - Real-Time File Storage</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -40,14 +40,29 @@
             background-color: #10b981;
             color: white;
         }
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-6xl">
         <!-- Header -->
         <header class="text-center mb-12">
-            <h1 class="text-4xl font-bold text-blue-600 mb-2">CloudFile</h1>
-            <p class="text-gray-600">Persistent file storage accessible from any device</p>
+            <h1 class="text-4xl font-bold text-blue-600 mb-2 flex items-center justify-center">
+                <i class="fas fa-cloud-upload-alt mr-3"></i>
+                <span>CloudSync</span>
+                <span id="connectionStatus" class="ml-3 text-xs font-normal bg-green-100 text-green-800 py-1 px-2 rounded-full flex items-center">
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                    <span>Connected</span>
+                </span>
+            </h1>
+            <p class="text-gray-600">Real-time file storage synchronized across all devices</p>
         </header>
 
         <!-- Upload Section -->
@@ -95,6 +110,9 @@
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-semibold text-gray-800 flex items-center">
                     <i class="fas fa-file-alt mr-2"></i> Your Files
+                    <span id="syncStatus" class="ml-2 text-xs font-normal text-gray-500 hidden">
+                        <i class="fas fa-sync-alt animate-spin mr-1"></i> Syncing...
+                    </span>
                 </h2>
                 <div class="flex items-center space-x-2">
                     <div class="relative">
@@ -135,18 +153,97 @@
     </div>
 
     <script>
-        // In a real application, these would be replaced with actual API calls to your backend
-        const API_BASE_URL = 'https://your-api-endpoint.com'; // Replace with your actual API URL
+        // Simulated real-time database
+        const simulatedDatabase = {
+            files: [
+                { id: '1', name: 'Project_Report.pdf', size: 2456789, uploadedAt: new Date(Date.now() - 86400000), url: '#', owner: 'demo' },
+                { id: '2', name: 'Vacation_Photos.zip', size: 12546789, uploadedAt: new Date(Date.now() - 172800000), url: '#', owner: 'demo' },
+                { id: '3', name: 'Presentation.pptx', size: 4567890, uploadedAt: new Date(Date.now() - 3600000), url: '#', owner: 'demo' }
+            ],
+            listeners: [],
+            
+            // Simulate real-time updates
+            simulateRealTimeUpdates() {
+                setInterval(() => {
+                    // Randomly add, update or remove files to simulate other users' actions
+                    const action = Math.random();
+                    
+                    if (action < 0.3 && this.files.length < 10) {
+                        // Add a new file
+                        const newFile = {
+                            id: Date.now().toString(),
+                            name: `File_${Math.floor(Math.random() * 100)}.${['pdf', 'docx', 'jpg', 'png', 'zip'][Math.floor(Math.random() * 5)]}`,
+                            size: Math.floor(Math.random() * 5000000) + 100000,
+                            uploadedAt: new Date(),
+                            url: '#',
+                            owner: 'other_user'
+                        };
+                        this.files.push(newFile);
+                        this.notifyListeners('added', newFile);
+                    } else if (action < 0.6 && this.files.length > 0) {
+                        // Remove a random file
+                        const index = Math.floor(Math.random() * this.files.length);
+                        const removedFile = this.files.splice(index, 1)[0];
+                        if (removedFile.owner !== 'demo') {
+                            this.notifyListeners('removed', removedFile);
+                        }
+                    }
+                }, 10000); // Every 10 seconds
+            },
+            
+            // Add a listener for real-time updates
+            addListener(callback) {
+                this.listeners.push(callback);
+            },
+            
+            // Notify all listeners about changes
+            notifyListeners(type, file) {
+                this.listeners.forEach(callback => callback(type, file));
+            },
+            
+            // Get files for a specific user
+            getFiles(userId) {
+                return this.files.filter(file => file.owner === userId);
+            },
+            
+            // Add a new file
+            addFile(file, userId) {
+                const newFile = {
+                    ...file,
+                    id: Date.now().toString(),
+                    uploadedAt: new Date(),
+                    owner: userId
+                };
+                this.files.push(newFile);
+                this.notifyListeners('added', newFile);
+                return newFile;
+            },
+            
+            // Remove a file
+            removeFile(fileId, userId) {
+                const index = this.files.findIndex(f => f.id === fileId && f.owner === userId);
+                if (index !== -1) {
+                    const removedFile = this.files.splice(index, 1)[0];
+                    this.notifyListeners('removed', removedFile);
+                    return true;
+                }
+                return false;
+            }
+        };
+        
+        // Initialize the simulated real-time updates
+        simulatedDatabase.simulateRealTimeUpdates();
         
         // Store uploaded files
         let uploadedFiles = [];
         let currentLanguage = 'en';
+        const currentUserId = 'demo'; // In a real app, this would be the logged-in user
         
         // Language translations
         const translations = {
             en: {
-                title: "CloudFile",
-                subtitle: "Persistent file storage accessible from any device",
+                title: "CloudSync",
+                subtitle: "Real-time file storage synchronized across all devices",
                 dragDrop: "Drag & drop files here",
                 or: "or",
                 uploadFile: "Upload File",
@@ -165,11 +262,16 @@
                     nameDesc: "Name (Z-A)",
                     sizeAsc: "Size (smallest)",
                     sizeDesc: "Size (largest)"
+                },
+                connection: {
+                    connected: "Connected",
+                    disconnected: "Disconnected",
+                    reconnecting: "Reconnecting..."
                 }
             },
             tr: {
-                title: "BulutDosya",
-                subtitle: "Her cihazdan erişilebilen kalıcı dosya depolama",
+                title: "BulutSenk",
+                subtitle: "Tüm cihazlarda senkronize gerçek zamanlı dosya depolama",
                 dragDrop: "Dosyaları buraya sürükleyin",
                 or: "veya",
                 uploadFile: "Dosya Yükle",
@@ -188,6 +290,11 @@
                     nameDesc: "İsme göre (Z-A)",
                     sizeAsc: "Boyut (küçükten)",
                     sizeDesc: "Boyut (büyükten)"
+                },
+                connection: {
+                    connected: "Bağlı",
+                    disconnected: "Bağlantı kesildi",
+                    reconnecting: "Yeniden bağlanıyor..."
                 }
             }
         };
@@ -197,24 +304,82 @@
             // Load files from server when page loads
             fetchFilesFromServer();
             updateLanguage();
+            
+            // Simulate connection status changes
+            simulateConnectionStatus();
+            
+            // Set up real-time listener
+            setupRealtimeListener();
         });
+
+        // Simulate connection status changes
+        function simulateConnectionStatus() {
+            const statusElement = document.getElementById('connectionStatus');
+            const statusDot = statusElement.querySelector('span:first-child');
+            const statusText = statusElement.querySelector('span:last-child');
+            
+            // Randomly change connection status to simulate real-world conditions
+            setInterval(() => {
+                const status = Math.random();
+                const lang = translations[currentLanguage].connection;
+                
+                if (status < 0.8) {
+                    // Connected
+                    statusElement.className = statusElement.className.replace(/bg-\w+-\d+/, 'bg-green-100').replace(/text-\w+-\d+/, 'text-green-800');
+                    statusDot.className = 'w-2 h-2 bg-green-500 rounded-full mr-1';
+                    statusText.textContent = lang.connected;
+                } else if (status < 0.9) {
+                    // Disconnected
+                    statusElement.className = statusElement.className.replace(/bg-\w+-\d+/, 'bg-red-100').replace(/text-\w+-\d+/, 'text-red-800');
+                    statusDot.className = 'w-2 h-2 bg-red-500 rounded-full mr-1';
+                    statusText.textContent = lang.disconnected;
+                } else {
+                    // Reconnecting
+                    statusElement.className = statusElement.className.replace(/bg-\w+-\d+/, 'bg-yellow-100').replace(/text-\w+-\d+/, 'text-yellow-800');
+                    statusDot.className = 'w-2 h-2 bg-yellow-500 rounded-full mr-1 pulse';
+                    statusText.textContent = lang.reconnecting;
+                }
+            }, 10000);
+        }
+
+        // Set up real-time listener for file changes
+        function setupRealtimeListener() {
+            simulatedDatabase.addListener((type, file) => {
+                const syncStatus = document.getElementById('syncStatus');
+                syncStatus.classList.remove('hidden');
+                
+                // Simulate network delay
+                setTimeout(() => {
+                    if (type === 'added') {
+                        // Only add if it's not already in our list
+                        if (!uploadedFiles.some(f => f.id === file.id)) {
+                            if (file.owner === currentUserId) {
+                                uploadedFiles.unshift(file); // Add our own files at the top
+                            } else {
+                                uploadedFiles.push(file); // Add others' files at the bottom
+                            }
+                            renderFileList();
+                        }
+                    } else if (type === 'removed') {
+                        uploadedFiles = uploadedFiles.filter(f => f.id !== file.id);
+                        renderFileList();
+                    }
+                    
+                    syncStatus.classList.add('hidden');
+                }, 500);
+            });
+        }
 
         // Fetch files from server (simulated)
         async function fetchFilesFromServer() {
             try {
                 // In a real app, you would make an actual API call here:
-                // const response = await fetch(`${API_BASE_URL}/files`);
+                // const response = await fetch(`${API_BASE_URL}/files?userId=${currentUserId}`);
                 // const data = await response.json();
                 // uploadedFiles = data.files;
                 
-                // For demo purposes, we'll simulate loading files from server
-                const demoFiles = [
-                    { id: '1', name: 'Project_Report.pdf', size: 2456789, uploadedAt: new Date(Date.now() - 86400000), url: '#' },
-                    { id: '2', name: 'Vacation_Photos.zip', size: 12546789, uploadedAt: new Date(Date.now() - 172800000), url: '#' },
-                    { id: '3', name: 'Presentation.pptx', size: 4567890, uploadedAt: new Date(Date.now() - 3600000), url: '#' }
-                ];
-                
-                uploadedFiles = demoFiles;
+                // For demo purposes, we'll use our simulated database
+                uploadedFiles = simulatedDatabase.getFiles(currentUserId);
                 renderFileList();
                 
                 if (uploadedFiles.length > 0) {
@@ -270,6 +435,11 @@
             if (document.getElementById('progressContainer').style.display !== 'none') {
                 document.querySelector('#progressContainer span:first-child').textContent = lang.uploading;
             }
+            
+            // Update connection status
+            const statusElement = document.getElementById('connectionStatus');
+            const statusText = statusElement.querySelector('span:last-child');
+            statusText.textContent = lang.connection.connected;
         }
 
         // Handle drag over event
@@ -335,14 +505,12 @@
                         if (progress >= 100) {
                             clearInterval(interval);
                             
-                            // Simulate server response
-                            const serverFile = {
-                                id: Date.now().toString(),
+                            // Simulate server response by adding to our simulated database
+                            const serverFile = simulatedDatabase.addFile({
                                 name: file.name,
                                 size: file.size,
-                                uploadedAt: new Date(),
                                 url: '#' // In real app, this would be the server URL
-                            };
+                            }, currentUserId);
                             
                             resolve(serverFile);
                         }
@@ -353,7 +521,8 @@
             try {
                 const uploadedFilesData = await Promise.all(uploadPromises);
                 
-                // Add to our local list (in a real app, the server would return the complete list)
+                // Add to our local list (they're already added via the real-time listener)
+                // This is just to ensure they show up immediately
                 uploadedFiles = [...uploadedFiles, ...uploadedFilesData];
                 
                 // Render the updated list
@@ -415,6 +584,14 @@
                 const date = document.createElement('span');
                 date.textContent = formatDate(file.uploadedAt);
                 
+                // Add owner badge if it's not the current user's file
+                if (file.owner !== currentUserId) {
+                    const owner = document.createElement('span');
+                    owner.className = 'bg-gray-200 text-gray-700 text-xs px-2 py-0.5 rounded-full';
+                    owner.textContent = 'Shared';
+                    details.appendChild(owner);
+                }
+                
                 details.appendChild(size);
                 details.appendChild(date);
                 
@@ -439,15 +616,17 @@
                 downloadBtn.innerHTML = `<i class="fas fa-download mr-1"></i> ${lang.download}`;
                 downloadBtn.onclick = () => downloadFile(file);
                 
-                // Delete Button
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'delete-btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-full text-sm transition duration-300';
-                deleteBtn.innerHTML = `<i class="fas fa-trash mr-1"></i> ${lang.delete}`;
-                deleteBtn.onclick = () => deleteFile(file.id, fileItem);
+                // Delete Button (only for current user's files)
+                if (file.owner === currentUserId) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-full text-sm transition duration-300';
+                    deleteBtn.innerHTML = `<i class="fas fa-trash mr-1"></i> ${lang.delete}`;
+                    deleteBtn.onclick = () => deleteFile(file.id, fileItem);
+                    fileActions.appendChild(deleteBtn);
+                }
                 
                 fileActions.appendChild(copyBtn);
                 fileActions.appendChild(downloadBtn);
-                fileActions.appendChild(deleteBtn);
                 
                 fileItem.appendChild(fileInfo);
                 fileItem.appendChild(fileActions);
@@ -529,15 +708,21 @@
                 // In a real app, you would make an API call to delete the file
                 // await fetch(`${API_BASE_URL}/files/${fileId}`, { method: 'DELETE' });
                 
-                // Remove from our local list
-                uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
+                // Remove from our simulated database
+                const success = simulatedDatabase.removeFile(fileId, currentUserId);
                 
-                // Remove from UI
-                element.remove();
-                
-                // Show empty state if no files left
-                if (uploadedFiles.length === 0) {
-                    document.getElementById('emptyState').style.display = 'block';
+                if (success) {
+                    // Remove from our local list (the real-time listener will handle this)
+                    // This is just to ensure it disappears immediately
+                    uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
+                    
+                    // Remove from UI
+                    element.remove();
+                    
+                    // Show empty state if no files left
+                    if (uploadedFiles.length === 0) {
+                        document.getElementById('emptyState').style.display = 'block';
+                    }
                 }
             } catch (error) {
                 console.error('Error deleting file:', error);
