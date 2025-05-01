@@ -6,6 +6,9 @@
     <title>CloudSync - Real-Time File Storage</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
         .dropzone {
             border: 2px dashed #3b82f6;
@@ -153,92 +156,27 @@
     </div>
 
     <script>
-        // Simulated real-time database
-        const simulatedDatabase = {
-            files: [
-                { id: '1', name: 'Project_Report.pdf', size: 2456789, uploadedAt: new Date(Date.now() - 86400000), url: '#', owner: 'demo' },
-                { id: '2', name: 'Vacation_Photos.zip', size: 12546789, uploadedAt: new Date(Date.now() - 172800000), url: '#', owner: 'demo' },
-                { id: '3', name: 'Presentation.pptx', size: 4567890, uploadedAt: new Date(Date.now() - 3600000), url: '#', owner: 'demo' }
-            ],
-            listeners: [],
-            
-            // Simulate real-time updates
-            simulateRealTimeUpdates() {
-                setInterval(() => {
-                    // Randomly add, update or remove files to simulate other users' actions
-                    const action = Math.random();
-                    
-                    if (action < 0.3 && this.files.length < 10) {
-                        // Add a new file
-                        const newFile = {
-                            id: Date.now().toString(),
-                            name: `File_${Math.floor(Math.random() * 100)}.${['pdf', 'docx', 'jpg', 'png', 'zip'][Math.floor(Math.random() * 5)]}`,
-                            size: Math.floor(Math.random() * 5000000) + 100000,
-                            uploadedAt: new Date(),
-                            url: '#',
-                            owner: 'other_user'
-                        };
-                        this.files.push(newFile);
-                        this.notifyListeners('added', newFile);
-                    } else if (action < 0.6 && this.files.length > 0) {
-                        // Remove a random file
-                        const index = Math.floor(Math.random() * this.files.length);
-                        const removedFile = this.files.splice(index, 1)[0];
-                        if (removedFile.owner !== 'demo') {
-                            this.notifyListeners('removed', removedFile);
-                        }
-                    }
-                }, 10000); // Every 10 seconds
-            },
-            
-            // Add a listener for real-time updates
-            addListener(callback) {
-                this.listeners.push(callback);
-            },
-            
-            // Notify all listeners about changes
-            notifyListeners(type, file) {
-                this.listeners.forEach(callback => callback(type, file));
-            },
-            
-            // Get files for a specific user
-            getFiles(userId) {
-                return this.files.filter(file => file.owner === userId);
-            },
-            
-            // Add a new file
-            addFile(file, userId) {
-                const newFile = {
-                    ...file,
-                    id: Date.now().toString(),
-                    uploadedAt: new Date(),
-                    owner: userId
-                };
-                this.files.push(newFile);
-                this.notifyListeners('added', newFile);
-                return newFile;
-            },
-            
-            // Remove a file
-            removeFile(fileId, userId) {
-                const index = this.files.findIndex(f => f.id === fileId && f.owner === userId);
-                if (index !== -1) {
-                    const removedFile = this.files.splice(index, 1)[0];
-                    this.notifyListeners('removed', removedFile);
-                    return true;
-                }
-                return false;
-            }
+        // Firebase Configuration (replace with your actual config)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDummyKeyReplaceWithYours",
+            authDomain: "your-project-id.firebaseapp.com",
+            databaseURL: "https://your-project-id.firebaseio.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project-id.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdef1234567890"
         };
-        
-        // Initialize the simulated real-time updates
-        simulatedDatabase.simulateRealTimeUpdates();
-        
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const storage = firebase.storage();
+        const database = firebase.database();
+
         // Store uploaded files
         let uploadedFiles = [];
         let currentLanguage = 'en';
-        const currentUserId = 'demo'; // In a real app, this would be the logged-in user
-        
+        const currentUserId = 'demo-user'; // In a real app, this would be the logged-in user
+
         // Language translations
         const translations = {
             en: {
@@ -301,86 +239,79 @@
 
         // Initialize the app
         document.addEventListener('DOMContentLoaded', function() {
-            // Load files from server when page loads
-            fetchFilesFromServer();
+            // Load files from Firebase when page loads
+            fetchFilesFromFirebase();
             updateLanguage();
-            
-            // Simulate connection status changes
-            simulateConnectionStatus();
             
             // Set up real-time listener
             setupRealtimeListener();
+            
+            // Monitor connection status
+            monitorConnectionStatus();
         });
 
-        // Simulate connection status changes
-        function simulateConnectionStatus() {
+        // Monitor Firebase connection status
+        function monitorConnectionStatus() {
             const statusElement = document.getElementById('connectionStatus');
             const statusDot = statusElement.querySelector('span:first-child');
             const statusText = statusElement.querySelector('span:last-child');
             
-            // Randomly change connection status to simulate real-world conditions
-            setInterval(() => {
-                const status = Math.random();
+            const connectedRef = database.ref(".info/connected");
+            connectedRef.on("value", function(snap) {
                 const lang = translations[currentLanguage].connection;
                 
-                if (status < 0.8) {
-                    // Connected
+                if (snap.val() === true) {
                     statusElement.className = statusElement.className.replace(/bg-\w+-\d+/, 'bg-green-100').replace(/text-\w+-\d+/, 'text-green-800');
                     statusDot.className = 'w-2 h-2 bg-green-500 rounded-full mr-1';
                     statusText.textContent = lang.connected;
-                } else if (status < 0.9) {
-                    // Disconnected
-                    statusElement.className = statusElement.className.replace(/bg-\w+-\d+/, 'bg-red-100').replace(/text-\w+-\d+/, 'text-red-800');
-                    statusDot.className = 'w-2 h-2 bg-red-500 rounded-full mr-1';
-                    statusText.textContent = lang.disconnected;
                 } else {
-                    // Reconnecting
-                    statusElement.className = statusElement.className.replace(/bg-\w+-\d+/, 'bg-yellow-100').replace(/text-\w+-\d+/, 'text-yellow-800');
-                    statusDot.className = 'w-2 h-2 bg-yellow-500 rounded-full mr-1 pulse';
-                    statusText.textContent = lang.reconnecting;
+                    statusElement.className = statusElement.className.replace(/bg-\w+-\d+/, 'bg-red-100').replace(/text-\w+-\d+/, 'text-red-800');
+                    statusDot.className = 'w-2 h-2 bg-red-500 rounded-full mr-1 pulse';
+                    statusText.textContent = lang.disconnected;
                 }
-            }, 10000);
+            });
         }
 
         // Set up real-time listener for file changes
         function setupRealtimeListener() {
-            simulatedDatabase.addListener((type, file) => {
+            const filesRef = database.ref('files');
+            
+            filesRef.on('child_added', (snapshot) => {
+                const file = snapshot.val();
                 const syncStatus = document.getElementById('syncStatus');
                 syncStatus.classList.remove('hidden');
                 
-                // Simulate network delay
-                setTimeout(() => {
-                    if (type === 'added') {
-                        // Only add if it's not already in our list
-                        if (!uploadedFiles.some(f => f.id === file.id)) {
-                            if (file.owner === currentUserId) {
-                                uploadedFiles.unshift(file); // Add our own files at the top
-                            } else {
-                                uploadedFiles.push(file); // Add others' files at the bottom
-                            }
-                            renderFileList();
-                        }
-                    } else if (type === 'removed') {
-                        uploadedFiles = uploadedFiles.filter(f => f.id !== file.id);
-                        renderFileList();
-                    }
-                    
-                    syncStatus.classList.add('hidden');
-                }, 500);
+                // Only add if it's not already in our list
+                if (!uploadedFiles.some(f => f.id === file.id)) {
+                    uploadedFiles.push(file);
+                    renderFileList();
+                }
+                
+                syncStatus.classList.add('hidden');
+            });
+            
+            filesRef.on('child_removed', (snapshot) => {
+                const fileId = snapshot.key;
+                const syncStatus = document.getElementById('syncStatus');
+                syncStatus.classList.remove('hidden');
+                
+                uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
+                renderFileList();
+                
+                syncStatus.classList.add('hidden');
             });
         }
 
-        // Fetch files from server (simulated)
-        async function fetchFilesFromServer() {
+        // Fetch files from Firebase
+        async function fetchFilesFromFirebase() {
             try {
-                // In a real app, you would make an actual API call here:
-                // const response = await fetch(`${API_BASE_URL}/files?userId=${currentUserId}`);
-                // const data = await response.json();
-                // uploadedFiles = data.files;
+                const snapshot = await database.ref('files').once('value');
+                const files = snapshot.val();
                 
-                // For demo purposes, we'll use our simulated database
-                uploadedFiles = simulatedDatabase.getFiles(currentUserId);
-                renderFileList();
+                if (files) {
+                    uploadedFiles = Object.values(files);
+                    renderFileList();
+                }
                 
                 if (uploadedFiles.length > 0) {
                     document.getElementById('emptyState').style.display = 'none';
@@ -435,11 +366,6 @@
             if (document.getElementById('progressContainer').style.display !== 'none') {
                 document.querySelector('#progressContainer span:first-child').textContent = lang.uploading;
             }
-            
-            // Update connection status
-            const statusElement = document.getElementById('connectionStatus');
-            const statusText = statusElement.querySelector('span:last-child');
-            statusText.textContent = lang.connection.connected;
         }
 
         // Handle drag over event
@@ -478,7 +404,7 @@
             e.target.value = '';
         }
 
-        // Upload files to server
+        // Upload files to Firebase Storage and save metadata to Realtime Database
         async function uploadFiles(files) {
             // Show progress bar
             const progressContainer = document.getElementById('progressContainer');
@@ -489,59 +415,69 @@
             progressFill.style.width = '0%';
             progressPercent.textContent = '0%';
             
-            // In a real app, you would upload to your backend API
-            // Here's a simulated version that shows the progress
-            const uploadPromises = Array.from(files).map(file => {
-                return new Promise((resolve) => {
-                    // Simulate upload progress
-                    let progress = 0;
-                    const interval = setInterval(() => {
-                        progress += 5 + Math.random() * 10;
-                        if (progress > 100) progress = 100;
-                        
-                        progressFill.style.width = `${progress}%`;
-                        progressPercent.textContent = `${Math.round(progress)}%`;
-                        
-                        if (progress >= 100) {
-                            clearInterval(interval);
+            // Upload each file
+            for (const file of files) {
+                try {
+                    // Create a unique filename with timestamp
+                    const timestamp = Date.now();
+                    const fileExtension = file.name.split('.').pop();
+                    const uniqueFilename = `${timestamp}.${fileExtension}`;
+                    
+                    // Create storage reference
+                    const storageRef = storage.ref().child(`files/${currentUserId}/${uniqueFilename}`);
+                    
+                    // Upload file to Firebase Storage
+                    const uploadTask = storageRef.put(file);
+                    
+                    // Listen for upload progress
+                    uploadTask.on('state_changed', 
+                        (snapshot) => {
+                            // Progress tracking
+                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                            progressFill.style.width = `${progress}%`;
+                            progressPercent.textContent = `${Math.round(progress)}%`;
+                        },
+                        (error) => {
+                            console.error('Upload error:', error);
+                            alert('Error uploading file. Please try again.');
+                        },
+                        async () => {
+                            // Upload complete
+                            const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
                             
-                            // Simulate server response by adding to our simulated database
-                            const serverFile = simulatedDatabase.addFile({
+                            // Save file metadata to Realtime Database
+                            const fileData = {
+                                id: timestamp.toString(),
                                 name: file.name,
                                 size: file.size,
-                                url: '#' // In real app, this would be the server URL
-                            }, currentUserId);
+                                url: downloadURL,
+                                uploadedAt: timestamp,
+                                owner: currentUserId,
+                                storagePath: uploadTask.snapshot.ref.fullPath
+                            };
                             
-                            resolve(serverFile);
+                            await database.ref(`files/${fileData.id}`).set(fileData);
+                            
+                            // Hide progress bar when all files are uploaded
+                            if (Array.from(files).indexOf(file) === files.length - 1) {
+                                setTimeout(() => {
+                                    progressContainer.classList.add('hidden');
+                                }, 1000);
+                            }
                         }
-                    }, 200);
-                });
-            });
-            
-            try {
-                const uploadedFilesData = await Promise.all(uploadPromises);
-                
-                // Add to our local list (they're already added via the real-time listener)
-                // This is just to ensure they show up immediately
-                uploadedFiles = [...uploadedFiles, ...uploadedFilesData];
-                
-                // Render the updated list
-                renderFileList();
-                
-                // Hide empty state if it was shown
-                document.getElementById('emptyState').style.display = 'none';
-                
-                // Sort files by newest first
-                sortFiles('newest');
-            } catch (error) {
-                console.error('Error uploading files:', error);
-                alert('Error uploading files. Please try again.');
-            } finally {
-                // Hide progress bar after a short delay
-                setTimeout(() => {
-                    progressContainer.classList.add('hidden');
-                }, 500);
+                    );
+                    
+                } catch (error) {
+                    console.error('Error uploading file:', error);
+                    alert('Error uploading file. Please try again.');
+                }
             }
+            
+            // Hide empty state if it was shown
+            document.getElementById('emptyState').style.display = 'none';
+            
+            // Sort files by newest first
+            sortFiles('newest');
         }
 
         // Render the file list
@@ -557,6 +493,7 @@
             uploadedFiles.forEach(file => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'file-item bg-gray-50 rounded-lg p-4 flex items-center justify-between';
+                fileItem.id = `file-${file.id}`;
                 
                 const fileInfo = document.createElement('div');
                 fileInfo.className = 'flex items-center';
@@ -621,7 +558,7 @@
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'delete-btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-full text-sm transition duration-300';
                     deleteBtn.innerHTML = `<i class="fas fa-trash mr-1"></i> ${lang.delete}`;
-                    deleteBtn.onclick = () => deleteFile(file.id, fileItem);
+                    deleteBtn.onclick = () => deleteFile(file.id, fileItem, file.storagePath);
                     fileActions.appendChild(deleteBtn);
                 }
                 
@@ -673,11 +610,7 @@
         function copyFileLink(file, button) {
             const lang = translations[currentLanguage];
             
-            // In a real app, this would be the actual file URL from the server
-            const fileUrl = `${window.location.origin}/files/${file.id}`;
-            
-            // Simulate copying to clipboard
-            navigator.clipboard.writeText(fileUrl).then(() => {
+            navigator.clipboard.writeText(file.url).then(() => {
                 button.innerHTML = `<i class="fas fa-check mr-1"></i> ${lang.copied}`;
                 button.classList.add('copied');
                 
@@ -690,39 +623,35 @@
 
         // Download a file
         function downloadFile(file) {
-            // In a real app, this would download from the server URL
-            // For demo, we'll create a dummy download
-            const url = URL.createObjectURL(new Blob([`This is a demo file representing ${file.name}`], {type: 'application/octet-stream'}));
             const a = document.createElement('a');
-            a.href = url;
+            a.href = file.url;
             a.download = file.name;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         }
 
-        // Delete a file
-        async function deleteFile(fileId, element) {
+        // Delete a file from Firebase Storage and Realtime Database
+        async function deleteFile(fileId, element, storagePath) {
             try {
-                // In a real app, you would make an API call to delete the file
-                // await fetch(`${API_BASE_URL}/files/${fileId}`, { method: 'DELETE' });
+                // Delete from Firebase Storage
+                if (storagePath) {
+                    const fileRef = storage.ref().child(storagePath);
+                    await fileRef.delete();
+                }
                 
-                // Remove from our simulated database
-                const success = simulatedDatabase.removeFile(fileId, currentUserId);
+                // Delete from Realtime Database
+                await database.ref(`files/${fileId}`).remove();
                 
-                if (success) {
-                    // Remove from our local list (the real-time listener will handle this)
-                    // This is just to ensure it disappears immediately
-                    uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
-                    
-                    // Remove from UI
-                    element.remove();
-                    
-                    // Show empty state if no files left
-                    if (uploadedFiles.length === 0) {
-                        document.getElementById('emptyState').style.display = 'block';
-                    }
+                // Remove from local list
+                uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
+                
+                // Remove from UI
+                element.remove();
+                
+                // Show empty state if no files left
+                if (uploadedFiles.length === 0) {
+                    document.getElementById('emptyState').style.display = 'block';
                 }
             } catch (error) {
                 console.error('Error deleting file:', error);
@@ -803,7 +732,8 @@
         }
 
         // Helper function to format date
-        function formatDate(date) {
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
             const options = { 
                 year: 'numeric', 
                 month: 'short', 
@@ -811,7 +741,7 @@
                 hour: '2-digit',
                 minute: '2-digit'
             };
-            return new Date(date).toLocaleDateString(undefined, options);
+            return date.toLocaleDateString(undefined, options);
         }
     </script>
 </body>
