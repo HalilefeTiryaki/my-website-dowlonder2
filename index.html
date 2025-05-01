@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudSync - Real-Time File Storage</title>
+    <title>DiskSync - Real-Time File Storage</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
         .dropzone {
@@ -58,14 +57,14 @@
         <!-- Header -->
         <header class="text-center mb-12">
             <h1 class="text-4xl font-bold text-blue-600 mb-2 flex items-center justify-center">
-                <i class="fas fa-cloud-upload-alt mr-3"></i>
-                <span>CloudSync</span>
+                <i class="fas fa-hard-drive mr-3"></i>
+                <span>DiskSync</span>
                 <span id="connectionStatus" class="ml-3 text-xs font-normal bg-green-100 text-green-800 py-1 px-2 rounded-full flex items-center">
                     <span class="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
                     <span>Connected</span>
                 </span>
             </h1>
-            <p class="text-gray-600">Real-time file storage synchronized across all devices</p>
+            <p class="text-gray-600">Real-time file storage with local disk persistence</p>
         </header>
 
         <!-- Upload Section -->
@@ -167,21 +166,22 @@
             appId: "1:123456789012:web:abcdef1234567890"
         };
 
-        // Initialize Firebase
+        // Initialize Firebase (only using Realtime Database for sync)
         firebase.initializeApp(firebaseConfig);
-        const storage = firebase.storage();
         const database = firebase.database();
 
+        // Server API endpoint (replace with your actual backend URL)
+        const API_BASE_URL = 'https://your-server.com/api';
+        
         // Store uploaded files
         let uploadedFiles = [];
         let currentLanguage = 'en';
-        const currentUserId = 'demo-user'; // In a real app, this would be the logged-in user
 
         // Language translations
         const translations = {
             en: {
-                title: "CloudSync",
-                subtitle: "Real-time file storage synchronized across all devices",
+                title: "DiskSync",
+                subtitle: "Real-time file storage with local disk persistence",
                 dragDrop: "Drag & drop files here",
                 or: "or",
                 uploadFile: "Upload File",
@@ -208,8 +208,8 @@
                 }
             },
             tr: {
-                title: "BulutSenk",
-                subtitle: "Tüm cihazlarda senkronize gerçek zamanlı dosya depolama",
+                title: "DiskSenk",
+                subtitle: "Yerel diskte saklanan gerçek zamanlı dosya depolama",
                 dragDrop: "Dosyaları buraya sürükleyin",
                 or: "veya",
                 uploadFile: "Dosya Yükle",
@@ -239,8 +239,8 @@
 
         // Initialize the app
         document.addEventListener('DOMContentLoaded', function() {
-            // Load files from Firebase when page loads
-            fetchFilesFromFirebase();
+            // Load files from server when page loads
+            fetchFilesFromServer();
             updateLanguage();
             
             // Set up real-time listener
@@ -302,9 +302,11 @@
             });
         }
 
-        // Fetch files from Firebase
-        async function fetchFilesFromFirebase() {
+        // Fetch files from server
+        async function fetchFilesFromServer() {
             try {
+                // In a real app, this would be an API call to your backend
+                // For demo purposes, we'll simulate it with Firebase
                 const snapshot = await database.ref('files').once('value');
                 const files = snapshot.val();
                 
@@ -404,7 +406,7 @@
             e.target.value = '';
         }
 
-        // Upload files to Firebase Storage and save metadata to Realtime Database
+        // Upload files to server
         async function uploadFiles(files) {
             // Show progress bar
             const progressContainer = document.getElementById('progressContainer');
@@ -418,55 +420,50 @@
             // Upload each file
             for (const file of files) {
                 try {
+                    // In a real app, this would be an API call to your backend
+                    // For demo purposes, we'll simulate it with Firebase
+                    
                     // Create a unique filename with timestamp
                     const timestamp = Date.now();
                     const fileExtension = file.name.split('.').pop();
                     const uniqueFilename = `${timestamp}.${fileExtension}`;
                     
-                    // Create storage reference
-                    const storageRef = storage.ref().child(`files/${currentUserId}/${uniqueFilename}`);
-                    
-                    // Upload file to Firebase Storage
-                    const uploadTask = storageRef.put(file);
-                    
-                    // Listen for upload progress
-                    uploadTask.on('state_changed', 
-                        (snapshot) => {
-                            // Progress tracking
-                            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                            progressFill.style.width = `${progress}%`;
-                            progressPercent.textContent = `${Math.round(progress)}%`;
-                        },
-                        (error) => {
-                            console.error('Upload error:', error);
-                            alert('Error uploading file. Please try again.');
-                        },
-                        async () => {
-                            // Upload complete
-                            const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
-                            
-                            // Save file metadata to Realtime Database
-                            const fileData = {
-                                id: timestamp.toString(),
-                                name: file.name,
-                                size: file.size,
-                                url: downloadURL,
-                                uploadedAt: timestamp,
-                                owner: currentUserId,
-                                storagePath: uploadTask.snapshot.ref.fullPath
-                            };
-                            
-                            await database.ref(`files/${fileData.id}`).set(fileData);
-                            
-                            // Hide progress bar when all files are uploaded
-                            if (Array.from(files).indexOf(file) === files.length - 1) {
-                                setTimeout(() => {
-                                    progressContainer.classList.add('hidden');
-                                }, 1000);
-                            }
+                    // Simulate upload progress
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        progress += Math.random() * 10;
+                        if (progress > 100) progress = 100;
+                        
+                        progressFill.style.width = `${progress}%`;
+                        progressPercent.textContent = `${Math.round(progress)}%`;
+                        
+                        if (progress === 100) {
+                            clearInterval(progressInterval);
                         }
-                    );
+                    }, 200);
                     
+                    // Simulate server response delay
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    // Create file metadata
+                    const fileData = {
+                        id: timestamp.toString(),
+                        name: file.name,
+                        size: file.size,
+                        url: `${API_BASE_URL}/download/${uniqueFilename}`, // This would be your actual download endpoint
+                        uploadedAt: timestamp,
+                        storagePath: `uploads/${uniqueFilename}` // This would be the path on your server's disk
+                    };
+                    
+                    // Save to Firebase Realtime Database for sync
+                    await database.ref(`files/${fileData.id}`).set(fileData);
+                    
+                    // Hide progress bar when all files are uploaded
+                    if (Array.from(files).indexOf(file) === files.length - 1) {
+                        setTimeout(() => {
+                            progressContainer.classList.add('hidden');
+                        }, 1000);
+                    }
                 } catch (error) {
                     console.error('Error uploading file:', error);
                     alert('Error uploading file. Please try again.');
@@ -521,14 +518,6 @@
                 const date = document.createElement('span');
                 date.textContent = formatDate(file.uploadedAt);
                 
-                // Add owner badge if it's not the current user's file
-                if (file.owner !== currentUserId) {
-                    const owner = document.createElement('span');
-                    owner.className = 'bg-gray-200 text-gray-700 text-xs px-2 py-0.5 rounded-full';
-                    owner.textContent = 'Shared';
-                    details.appendChild(owner);
-                }
-                
                 details.appendChild(size);
                 details.appendChild(date);
                 
@@ -553,17 +542,15 @@
                 downloadBtn.innerHTML = `<i class="fas fa-download mr-1"></i> ${lang.download}`;
                 downloadBtn.onclick = () => downloadFile(file);
                 
-                // Delete Button (only for current user's files)
-                if (file.owner === currentUserId) {
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.className = 'delete-btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-full text-sm transition duration-300';
-                    deleteBtn.innerHTML = `<i class="fas fa-trash mr-1"></i> ${lang.delete}`;
-                    deleteBtn.onclick = () => deleteFile(file.id, fileItem, file.storagePath);
-                    fileActions.appendChild(deleteBtn);
-                }
+                // Delete Button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-full text-sm transition duration-300';
+                deleteBtn.innerHTML = `<i class="fas fa-trash mr-1"></i> ${lang.delete}`;
+                deleteBtn.onclick = () => deleteFile(file.id, fileItem, file.storagePath);
                 
                 fileActions.appendChild(copyBtn);
                 fileActions.appendChild(downloadBtn);
+                fileActions.appendChild(deleteBtn);
                 
                 fileItem.appendChild(fileInfo);
                 fileItem.appendChild(fileActions);
@@ -631,16 +618,13 @@
             document.body.removeChild(a);
         }
 
-        // Delete a file from Firebase Storage and Realtime Database
+        // Delete a file
         async function deleteFile(fileId, element, storagePath) {
             try {
-                // Delete from Firebase Storage
-                if (storagePath) {
-                    const fileRef = storage.ref().child(storagePath);
-                    await fileRef.delete();
-                }
+                // In a real app, this would be an API call to your backend
+                // For demo purposes, we'll simulate it with Firebase
                 
-                // Delete from Realtime Database
+                // Remove from Firebase Realtime Database
                 await database.ref(`files/${fileId}`).remove();
                 
                 // Remove from local list
